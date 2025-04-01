@@ -1,20 +1,40 @@
-local WarpMouse        = {}
-WarpMouse.__index      = WarpMouse
+local WarpMouse                = {}
+WarpMouse.__index              = WarpMouse
 
 -- Metadata
-WarpMouse.name         = "WarpMouse"
-WarpMouse.version      = "0.1"
-WarpMouse.author       = "Michael Mogenson"
-WarpMouse.homepage     = "https://github.com/mogenson/WarpMouse.spoon"
-WarpMouse.license      = "MIT - https://opensource.org/licenses/MIT"
+WarpMouse.name                 = "WarpMouse"
+WarpMouse.version              = "0.1"
+WarpMouse.author               = "Michael Mogenson"
+WarpMouse.homepage             = "https://github.com/mogenson/WarpMouse.spoon"
+WarpMouse.license              = "MIT - https://opensource.org/licenses/MIT"
 
-local getCurrentScreen = hs.mouse.getCurrentScreen
-local absolutePosition = hs.mouse.absolutePosition
-local screenFind       = hs.screen.find
-WarpMouse.logger       = hs.logger.new(WarpMouse.name)
+local getCurrentScreen <const> = hs.mouse.getCurrentScreen
+local absolutePosition <const> = hs.mouse.absolutePosition
+local screenFind <const>       = hs.screen.find
+local isPointInRect <const>    = hs.geometry.isPointInRect
+WarpMouse.logger               = hs.logger.new(WarpMouse.name)
+
+-- a global variable that PaperWM can use to disable the eventtap while Mission Control is open
+_WarpMouseEventTap             = nil
 
 local function relative_y(y, current_frame, new_frame)
     return new_frame.h * (y - current_frame.y) / current_frame.h + new_frame.y
+end
+
+local function warp(from, to)
+    absolutePosition(to)
+    if WarpMouse.logger.getLogLevel() < 5 then
+        WarpMouse.logger.df("Warping mouse from %s to %s", hs.inspect(from), hs.inspect(to))
+    end
+end
+
+local function get_screen(cursor, frames)
+    for index, frame in ipairs(frames) do
+        if isPointInRect(cursor, frame) then
+            return index, frame
+        end
+    end
+    assert("cursor is not in any screen")
 end
 
 function WarpMouse:start()
@@ -26,41 +46,28 @@ function WarpMouse:start()
     end)
 
     for i, screen in ipairs(self.screens) do
-        local uuid = screen:getUUID()
-        self.screens[i] = uuid -- replace hs.screen with uuid
-        self.screens[uuid] = i -- also create a mapping from uuid to index
+        self.screens[i] = screen:fullFrame()
     end
 
-    self.logger.df("Starting with screens from left to right: %s",
+    self.logger.f("Starting with screens from left to right: %s",
         hs.inspect(self.screens))
 
-    self.mouse_watcher = hs.eventtap.new({
+    _WarpMouseEventTap = hs.eventtap.new({
         hs.eventtap.event.types.mouseMoved,
         hs.eventtap.event.types.leftMouseDragged,
         hs.eventtap.event.types.rightMouseDragged,
     }, function(event)
         local cursor = event:location()
-        local screen = getCurrentScreen()
-        local frame = screen:fullFrame()
+        local index, frame = get_screen(cursor, self.screens)
         if cursor.x == frame.x then
-            local uuid = screen:getUUID()
-            local left_uuid = self.screens[self.screens[uuid] - 1]
-            self.logger.df("cursor.x %f frame.x %f screen %s left_screen %s",
-                cursor.x, frame.x, uuid, left_uuid)
-            if left_uuid then
-                local left_frame = screenFind(left_uuid):fullFrame()
-                local y = relative_y(cursor.y, frame, left_frame)
-                absolutePosition({ x = left_frame.x2 - 3, y = y })
+            local left_frame = self.screens[index - 1]
+            if left_frame then
+                warp(cursor, { x = left_frame.x2 - 2, y = relative_y(cursor.y, frame, left_frame) })
             end
-        elseif cursor.x > frame.x2 - 0.5 then
-            local uuid = screen:getUUID()
-            local right_uuid = self.screens[self.screens[uuid] + 1]
-            self.logger.df("cursor.x %f frame.x %f screen %s right_screen %s",
-                cursor.x, frame.x, uuid, right_uuid)
-            if right_uuid then
-                local right_frame = screenFind(right_uuid):fullFrame()
-                local y = relative_y(cursor.y, frame, right_frame)
-                absolutePosition({ x = right_frame.x + 2, y = y })
+        elseif cursor.x > frame.x2 - 0.5 and cursor.x <= frame.x2 then
+            local right_frame = self.screens[index + 1]
+            if right_frame then
+                warp(cursor, { x = right_frame.x + 1, y = relative_y(cursor.y, frame, right_frame) })
             end
         end
     end):start()
@@ -73,11 +80,11 @@ function WarpMouse:start()
 end
 
 function WarpMouse:stop()
-    self.logger.d("Stopping")
+    self.logger.i("Stopping")
 
-    if self.mouse_watcher then
-        self.mouse_watcher:stop()
-        self.mouse_watcher = nil
+    if _WarpMouseEventTap then
+        _WarpMouseEventTap:stop()
+        _WarpMouseEventTap = nil
     end
 
     if self.screen_watcher then
