@@ -21,7 +21,9 @@ local function relative_y(y, current_frame, new_frame)
     return new_frame.h * (y - current_frame.y) / current_frame.h + new_frame.y
 end
 
-local function warp(from, to)
+local function warp(from, to, current_frame, new_frame)
+    absolutePosition(current_frame.center)
+    absolutePosition(new_frame.center)
     absolutePosition(to)
     if WarpMouse.logger.getLogLevel() < 5 then
         WarpMouse.logger.df("Warping mouse from %s to %s", hs.inspect(from), hs.inspect(to))
@@ -62,12 +64,12 @@ function WarpMouse:start()
         if cursor.x == frame.x then
             local left_frame = self.screens[index - 1]
             if left_frame then
-                warp(cursor, { x = left_frame.x2 - 2, y = relative_y(cursor.y, frame, left_frame) })
+                warp(cursor, { x = left_frame.x2 - 2, y = relative_y(cursor.y, frame, left_frame) }, frame, left_frame)
             end
         elseif cursor.x > frame.x2 - 0.5 and cursor.x <= frame.x2 then
             local right_frame = self.screens[index + 1]
             if right_frame then
-                warp(cursor, { x = right_frame.x + 1, y = relative_y(cursor.y, frame, right_frame) })
+                warp(cursor, { x = right_frame.x + 1, y = relative_y(cursor.y, frame, right_frame) }, frame, right_frame)
             end
         end
     end):start()
