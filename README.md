@@ -23,5 +23,6 @@ WarpMouse.spoon will hot reload it's screen arangement without intervention when
 Example Hammerspoon config:
 ```lua
 WarpMouse = hs.loadSpoon("WarpMouse")
+WarpMouse.margin = 8  -- optionally set how far past a screen edge the mouse should warp, default is 2 pixels
 WarpMouse:start()
 ```

@@ -3,7 +3,7 @@ WarpMouse.__index              = WarpMouse
 
 -- Metadata
 WarpMouse.name                 = "WarpMouse"
-WarpMouse.version              = "0.1"
+WarpMouse.version              = "0.2"
 WarpMouse.author               = "Michael Mogenson"
 WarpMouse.homepage             = "https://github.com/mogenson/WarpMouse.spoon"
 WarpMouse.license              = "MIT - https://opensource.org/licenses/MIT"
@@ -13,6 +13,7 @@ local absolutePosition <const> = hs.mouse.absolutePosition
 local screenFind <const>       = hs.screen.find
 local isPointInRect <const>    = hs.geometry.isPointInRect
 WarpMouse.logger               = hs.logger.new(WarpMouse.name)
+WarpMouse.margin               = 2
 
 -- a global variable that PaperWM can use to disable the eventtap while Mission Control is open
 _WarpMouseEventTap             = nil
@@ -64,12 +65,14 @@ function WarpMouse:start()
         if cursor.x == frame.x then
             local left_frame = self.screens[index - 1]
             if left_frame then
-                warp(cursor, { x = left_frame.x2 - 2, y = relative_y(cursor.y, frame, left_frame) }, frame, left_frame)
+                warp(cursor, { x = left_frame.x2 - self.margin, y = relative_y(cursor.y, frame, left_frame) }, frame,
+                    left_frame)
             end
         elseif cursor.x > frame.x2 - 0.5 and cursor.x <= frame.x2 then
             local right_frame = self.screens[index + 1]
             if right_frame then
-                warp(cursor, { x = right_frame.x + 1, y = relative_y(cursor.y, frame, right_frame) }, frame, right_frame)
+                warp(cursor, { x = right_frame.x + self.margin, y = relative_y(cursor.y, frame, right_frame) }, frame,
+                    right_frame)
             end
         end
     end):start()
