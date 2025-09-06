@@ -1,45 +1,58 @@
-local WarpMouse                = {}
-WarpMouse.__index              = WarpMouse
+local WarpMouse             = {}
+WarpMouse.__index           = WarpMouse
 
 -- Metadata
-WarpMouse.name                 = "WarpMouse"
-WarpMouse.version              = "0.2"
-WarpMouse.author               = "Michael Mogenson"
-WarpMouse.homepage             = "https://github.com/mogenson/WarpMouse.spoon"
-WarpMouse.license              = "MIT - https://opensource.org/licenses/MIT"
+WarpMouse.name              = "WarpMouse"
+WarpMouse.version           = "0.3"
+WarpMouse.author            = "Michael Mogenson"
+WarpMouse.homepage          = "https://github.com/mogenson/WarpMouse.spoon"
+WarpMouse.license           = "MIT - https://opensource.org/licenses/MIT"
 
-local getCurrentScreen <const> = hs.mouse.getCurrentScreen
-local absolutePosition <const> = hs.mouse.absolutePosition
-local screenFind <const>       = hs.screen.find
-local isPointInRect <const>    = hs.geometry.isPointInRect
-WarpMouse.logger               = hs.logger.new(WarpMouse.name)
-WarpMouse.margin               = 2
+local eventTypes <const>    = hs.eventtap.event.types
+local isPointInRect <const> = hs.geometry.isPointInRect
+local newMouseEvent <const> = hs.eventtap.event.newMouseEvent
+WarpMouse.logger            = hs.logger.new(WarpMouse.name)
+WarpMouse.margin            = 2
 
 -- a global variable that PaperWM can use to disable the eventtap while Mission Control is open
-_WarpMouseEventTap             = nil
+_WarpMouseEventTap          = nil
 
+--- Calculates the relative y position of the cursor on a new screen.
+--- @param y number the y position of the cursor on the current screen
+--- @param current_frame table the frame of the current screen
+--- @param new_frame table the frame of the new screen
+--- @return number the y position of the cursor on the new screen
 local function relative_y(y, current_frame, new_frame)
     return new_frame.h * (y - current_frame.y) / current_frame.h + new_frame.y
 end
 
-local function warp(from, to, current_frame, new_frame)
-    absolutePosition(current_frame.center)
-    absolutePosition(new_frame.center)
-    absolutePosition(to)
+--- Warps the mouse from one position to another.
+--- @param from table the position to warp from
+--- @param to table the position to warp to
+local function warp(from, to)
+    _WarpMouseEventTap:stop()
+    newMouseEvent(eventTypes.mouseMoved, to):post();
+    _WarpMouseEventTap:start()
     if WarpMouse.logger.getLogLevel() < 5 then
         WarpMouse.logger.df("Warping mouse from %s to %s", hs.inspect(from), hs.inspect(to))
     end
 end
 
+--- Gets the screen that the cursor is currently on.
+--- @param cursor table the position of the cursor
+--- @param frames table a list of screen frames
+--- @return number the index of the screen that the cursor is on
+--- @return table the frame of the screen that the cursor is on
 local function get_screen(cursor, frames)
     for index, frame in ipairs(frames) do
         if isPointInRect(cursor, frame) then
             return index, frame
         end
     end
-    assert("cursor is not in any screen")
+    error("cursor is not in any screen")
 end
 
+--- Starts the WarpMouse spoon.
 function WarpMouse:start()
     self.screens = hs.screen.allScreens()
 
@@ -56,23 +69,21 @@ function WarpMouse:start()
         hs.inspect(self.screens))
 
     _WarpMouseEventTap = hs.eventtap.new({
-        hs.eventtap.event.types.mouseMoved,
-        hs.eventtap.event.types.leftMouseDragged,
-        hs.eventtap.event.types.rightMouseDragged,
+        eventTypes.mouseMoved,
+        eventTypes.leftMouseDragged,
+        eventTypes.rightMouseDragged,
     }, function(event)
         local cursor = event:location()
         local index, frame = get_screen(cursor, self.screens)
         if cursor.x == frame.x then
             local left_frame = self.screens[index - 1]
             if left_frame then
-                warp(cursor, { x = left_frame.x2 - self.margin, y = relative_y(cursor.y, frame, left_frame) }, frame,
-                    left_frame)
+                warp(cursor, { x = left_frame.x2 - self.margin, y = relative_y(cursor.y, frame, left_frame) })
             end
         elseif cursor.x > frame.x2 - 0.5 and cursor.x <= frame.x2 then
             local right_frame = self.screens[index + 1]
             if right_frame then
-                warp(cursor, { x = right_frame.x + self.margin, y = relative_y(cursor.y, frame, right_frame) }, frame,
-                    right_frame)
+                warp(cursor, { x = right_frame.x + self.margin, y = relative_y(cursor.y, frame, right_frame) })
             end
         end
     end):start()
@@ -84,6 +95,7 @@ function WarpMouse:start()
     end):start()
 end
 
+--- Stops the WarpMouse spoon.
 function WarpMouse:stop()
     self.logger.i("Stopping")
 
