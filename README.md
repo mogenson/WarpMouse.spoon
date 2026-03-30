@@ -24,5 +24,6 @@ Example Hammerspoon config:
 ```lua
 WarpMouse = hs.loadSpoon("WarpMouse")
 WarpMouse.margin = 8  -- optionally set how far past a screen edge the mouse should warp, default is 2 pixels
+WarpMouse.reverseScreens = true  -- optionally set to warp from bottom to top instead of top to bottom, default is false
 WarpMouse:start()
 ```

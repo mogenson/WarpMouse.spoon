@@ -13,6 +13,7 @@ local isPointInRect <const> = hs.geometry.isPointInRect
 local newMouseEvent <const> = hs.eventtap.event.newMouseEvent
 WarpMouse.logger            = hs.logger.new(WarpMouse.name)
 WarpMouse.margin            = 2
+WarpMouse.reverseScreens    = false
 
 -- a global variable that PaperWM can use to disable the eventtap while Mission Control is open
 _WarpMouseEventTap          = nil
@@ -56,9 +57,10 @@ end
 function WarpMouse:start()
     self.screens = hs.screen.allScreens()
 
+    local reverse = self.reverseScreens and -1 or 1
     table.sort(self.screens, function(a, b)
         -- sort list by screen postion top to bottom
-        return select(2, a:position()) < select(2, b:position())
+        return reverse * select(2, a:position()) < select(2, b:position())
     end)
 
     for i, screen in ipairs(self.screens) do
